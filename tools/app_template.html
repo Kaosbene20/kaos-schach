@@ -1,0 +1,864 @@
+<title>Kaos Schach</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: eine App mit drei Bereichen (Partien · Training · Trophäen) unter einer festen Kopfleiste; Brett immer als eine SVG-Fläche */
+:root {
+  --bg:#eef1ec; --surface:#fbfcfa; --surface-2:#f3f6f1; --ink:#16201a; --muted:#5b685f; --line:#d3dbd2; --accent:#2e6a49; --accent-ink:#ffffff; --accent-soft:#dce9e0;
+  --sq-light:#e6ebdf; --sq-dark:#7d9b85; --sq-hl:#d9b84a; --sel:#2e6a49; --white-side:#f6f7f3; --black-side:#26302a;
+  --c-brilliant:#138f8f; --c-great:#3a6fc0; --c-best:#2f8a57; --c-excellent:#5aa06f; --c-good:#8a9a8f; --c-inaccuracy:#c99a1c; --c-mistake:#d4782f; --c-blunder:#c0473a; --c-missed:#7448c9; --c-miss:#b0456f; --c-forced:#6f8796;
+  --bronze:#a96a33; --silver:#7f8c95; --gold:#b8890f; --legend:#7448c9; --locked:#c9d0c8;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif; --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:12px; --gap:16px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#0f1512; --surface:#161f1a; --surface-2:#1b261f; --ink:#e5ece6; --muted:#97a59b; --line:#28332c; --accent:#73c393; --accent-ink:#0f1512; --accent-soft:#1d3127;
+  --sq-light:#c6d0c1; --sq-dark:#5d7b66; --sq-hl:#d9b84a; --sel:#73c393; --white-side:#e9ece6; --black-side:#0b0f0d;
+  --c-brilliant:#3fcaca; --c-great:#6f9ff0; --c-best:#5fbf84; --c-excellent:#7cc795; --c-good:#8d9a90; --c-inaccuracy:#e2b43a; --c-mistake:#ec9450; --c-blunder:#e86a5c; --c-missed:#a283ec; --c-miss:#e07aa3; --c-forced:#93a7b3;
+  --bronze:#d08b4f; --silver:#aab6be; --gold:#e2b43a; --legend:#a283ec; --locked:#35413a; color-scheme:dark; } }
+:root[data-theme="dark"] {
+  --bg:#0f1512; --surface:#161f1a; --surface-2:#1b261f; --ink:#e5ece6; --muted:#97a59b; --line:#28332c; --accent:#73c393; --accent-ink:#0f1512; --accent-soft:#1d3127;
+  --sq-light:#c6d0c1; --sq-dark:#5d7b66; --sq-hl:#d9b84a; --sel:#73c393; --white-side:#e9ece6; --black-side:#0b0f0d;
+  --c-brilliant:#3fcaca; --c-great:#6f9ff0; --c-best:#5fbf84; --c-excellent:#7cc795; --c-good:#8d9a90; --c-inaccuracy:#e2b43a; --c-mistake:#ec9450; --c-blunder:#e86a5c; --c-missed:#a283ec; --c-miss:#e07aa3; --c-forced:#93a7b3;
+  --bronze:#d08b4f; --silver:#aab6be; --gold:#e2b43a; --legend:#a283ec; --locked:#35413a; color-scheme:dark; }
+* { box-sizing:border-box }
+body { background:var(--bg); color:var(--ink); font-family:var(--body); font-size:15px; line-height:1.45 }
+button, input, select { font:inherit; color:inherit }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px }
+.mono { font-family:var(--mono); font-variant-numeric:tabular-nums }
+.muted { color:var(--muted) }
+.eyebrow { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); min-width:0 }
+.pad { padding:14px }
+.stack { display:grid; gap:var(--gap); min-width:0 }
+
+/* Kopfleiste */
+body::before { content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:30; background:var(--surface) }
+.topbar { position:sticky; top:env(safe-area-inset-top,0px); z-index:20; background:var(--surface); border-bottom:1px solid var(--line) }
+.topbar .in { max-width:1320px; margin:0 auto; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:10px; display:flex; align-items:center; gap:12px 20px; flex-wrap:wrap }
+.brand { display:flex; align-items:center; gap:10px; min-width:0 }
+.brand h1 { margin:0; font-family:var(--display); font-weight:800; font-size:1.15rem; letter-spacing:.01em; white-space:nowrap }
+.lvl { display:flex; align-items:center; gap:6px; font-size:.78rem; color:var(--muted); white-space:nowrap }
+.lvl svg { width:22px; height:22px }
+nav.tabs { display:flex; gap:4px; margin-left:auto; background:var(--surface-2); border:1px solid var(--line); border-radius:999px; padding:3px }
+nav.tabs a { text-decoration:none; color:var(--ink); font-weight:600; font-size:.88rem; padding:6px 14px; border-radius:999px; white-space:nowrap }
+nav.tabs a[aria-current="page"] { background:var(--accent); color:var(--accent-ink) }
+@media (max-width:620px) { nav.tabs { margin-left:0; width:100% } nav.tabs a { flex:1; text-align:center; padding:6px 8px } }
+
+main.wrap { max-width:1320px; margin:0 auto; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:18px 48px }
+.view[hidden] { display:none !important }
+
+/* Raster für Partien und Training */
+.grid3 { display:grid; grid-template-columns:minmax(230px,270px) minmax(0,1fr) minmax(260px,330px); gap:var(--gap); align-items:start }
+@media (max-width:1120px) { .grid3 { grid-template-columns:minmax(220px,260px) minmax(0,1fr) } .grid3 > .right { grid-column:1 / -1; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:var(--gap); align-items:start } }
+@media (max-width:760px) {
+  .grid3 { grid-template-columns:minmax(0,1fr) }
+  .grid3 > .boardcol, .grid3 > .right { display:contents }
+  .grid3 > .boardcol > * { width:100%; max-width:100% }
+  .grid3 > .side { order:0 } .grid3 .player, .grid3 .boardrow, .grid3 .controls { order:1 }
+  .grid3 > .right > * { order:4 } .grid3 > .right > .comment { order:2 } .grid3 .chart { order:3 }
+}
+
+/* Linke Spalte: Filter + Liste */
+.side { display:grid; gap:10px; padding:12px }
+.chips { display:flex; flex-wrap:wrap; gap:6px }
+.chip { border:1px solid var(--line); background:transparent; border-radius:999px; padding:4px 10px; font-size:.78rem; cursor:pointer }
+.chip[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:var(--accent-ink) }
+.chip:disabled { opacity:.45; cursor:default }
+.chip[aria-pressed="true"] .muted { color:inherit; opacity:.8 }
+.seg { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+.seg button { border:0; background:transparent; padding:5px 4px; font-size:.78rem; cursor:pointer; border-left:1px solid var(--line) }
+.seg button:first-child { border-left:0 }
+.seg button[aria-pressed="true"] { background:var(--accent); color:var(--accent-ink) }
+.field { display:grid; gap:4px }
+.field label { font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted) }
+.field select, .field input { width:100%; min-width:0; border:1px solid var(--line); background:var(--surface-2); border-radius:8px; padding:6px 8px; font-size:.85rem }
+.count { font-size:.78rem; color:var(--muted) }
+.list { display:grid; gap:2px; max-height:min(58vh,560px); overflow:auto; margin:0 -6px; padding:0 6px }
+@media (max-width:760px) { .list { max-height:260px } details.filters:not([open]) > :not(summary) { display:none } }
+details.filters > :not(summary) + :not(summary) { margin-top:10px }
+details.filters > summary { cursor:pointer; font-weight:600; font-size:.88rem; list-style:none; display:flex; justify-content:space-between }
+details.filters > summary::-webkit-details-marker { display:none }
+@media (min-width:761px) { details.filters > summary { display:none } details.filters > summary + * { margin-top:0 } }
+@media (max-width:760px) { details.filters[open] > summary { margin-bottom:10px } }
+.item { display:grid; grid-template-columns:24px minmax(0,1fr) auto; gap:8px; align-items:center; padding:7px 8px; border-radius:8px; cursor:pointer; border:1px solid transparent; background:none; text-align:left; width:100% }
+.item:hover { background:var(--accent-soft) }
+.item[aria-current="true"] { border-color:var(--accent); background:var(--accent-soft) }
+.res { width:24px; height:24px; border-radius:6px; display:grid; place-items:center; font-weight:800; font-size:.72rem; color:#fff }
+.res.W { background:var(--c-best) } .res.L { background:var(--c-blunder) } .res.D { background:var(--c-good) }
+.side-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:0; border:1.5px solid var(--ink) }
+.side-dot.w { background:#fbfbf7 } .side-dot.b { background:#1c241f }
+.item .t1 { font-weight:600; font-size:.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.item .t2 { font-size:.74rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.item .t3 { font-family:var(--mono); font-size:.7rem; color:var(--muted); text-align:right; white-space:nowrap }
+.empty { padding:28px 12px; text-align:center; color:var(--muted); font-size:.88rem }
+
+/* Brett */
+.boardcol { display:grid; gap:10px; min-width:0; justify-items:center }
+.boardcol > * { width:100%; max-width:min(620px, calc(100svh - 230px)); min-width:0 }
+@media (max-width:760px) { .boardcol > * { max-width:100% } }
+.player { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:600; min-height:26px; flex-wrap:wrap }
+.player .rt { font-family:var(--mono); color:var(--muted); font-weight:400; font-size:.82rem }
+.badge { font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent) }
+.boardrow { display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px }
+.evalbar { position:relative; border-radius:5px; overflow:hidden; background:var(--black-side); border:1px solid var(--line) }
+.evalbar .fill { position:absolute; left:0; right:0; bottom:0; background:var(--white-side); transition:height .3s ease }
+.evalbar.flip .fill { bottom:auto; top:0 }
+svg.board { display:block; width:100%; height:auto; aspect-ratio:1/1; border-radius:6px; touch-action:none; user-select:none; -webkit-user-select:none }
+svg.board.interactive { cursor:pointer }
+.evaltxt { font-family:var(--mono); font-size:.8rem; color:var(--muted) }
+.controls { display:flex; gap:6px; flex-wrap:wrap; align-items:center }
+.btn { border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:6px 12px; font-weight:600; cursor:pointer; min-height:36px }
+.btn:hover { border-color:var(--accent) }
+.btn.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent) }
+.btn:disabled { opacity:.45; cursor:default }
+.spacer { flex:1 }
+@media (max-width:430px) { .lg { display:none } .btn { padding:6px 10px } }
+
+/* Rechte Spalte */
+.right { display:grid; gap:var(--gap); min-width:0 }
+.pill { display:inline-block; font-size:.7rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; color:#fff }
+.comment { display:grid; gap:8px }
+.comment .head { display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+.comment .mv { font-family:var(--mono); font-weight:600; font-size:1.05rem }
+.comment p { margin:0; font-size:.9rem }
+.sumgrid { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:5px 14px; font-size:.84rem; align-items:center }
+.sumgrid .h { font-size:.68rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.08em }
+.endline { margin:0 0 8px; font-size:.9rem }
+.item .t3 .pe { color:var(--ink) }
+.sumgrid .n { font-family:var(--mono); text-align:right; font-variant-numeric:tabular-nums }
+.dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px }
+.moves { padding:8px; max-height:300px; overflow:auto; display:grid; grid-template-columns:30px minmax(0,1fr) minmax(0,1fr); gap:2px; align-content:start; font-family:var(--mono); font-size:.85rem }
+.moves .no { color:var(--muted); padding:4px 6px 4px 0; text-align:right }
+.mvb { padding:4px 6px; border-radius:6px; cursor:pointer; display:flex; gap:6px; align-items:center; border:0; background:none; text-align:left; min-width:0 }
+.mvb:hover { background:var(--accent-soft) }
+.mvb[aria-current="true"] { background:var(--accent); color:var(--accent-ink) }
+.mvb i { width:7px; height:7px; border-radius:50%; flex:none }
+.chart { display:grid; gap:6px }
+.mvb .sym { font-weight:800; font-size:.78rem; margin-left:auto; padding-left:4px }
+.mvb[aria-current="true"] .sym { color:inherit !important }
+.scale summary { cursor:pointer; font-weight:700; font-size:.85rem; list-style:none; display:flex; justify-content:space-between; align-items:center }
+.scale summary::-webkit-details-marker { display:none }
+.scale summary::after { content:"+"; font-family:var(--mono); color:var(--muted) }
+.scale[open] summary::after { content:"−" }
+.scale-rows { display:grid; gap:7px; margin-top:10px }
+.scale-row { display:grid; grid-template-columns:30px minmax(0,1fr); gap:10px; align-items:start; font-size:.82rem; line-height:1.35 }
+.scale-row b { display:block; font-size:.84rem }
+.symb { width:30px; height:22px; border-radius:6px; display:grid; place-items:center; color:#fff; font-weight:800; font-size:.74rem }
+.why { font-size:.84rem; color:var(--muted); border-left:3px solid var(--line); padding-left:8px }
+.mat { display:inline-flex; align-items:center; gap:0; margin-left:6px; vertical-align:middle }
+.mat svg { width:15px; height:15px; margin-right:-4px }
+.mat .plus { font-family:var(--mono); font-size:.76rem; color:var(--muted); margin-left:8px; font-weight:600 }
+.perf { font-family:var(--mono) }
+.chart svg { display:block; width:100%; height:130px; cursor:pointer }
+.legend { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:.76rem; color:var(--muted) }
+.note { font-size:.78rem; color:var(--muted); margin:0 }
+a.link { color:var(--accent); font-weight:600; font-size:.85rem }
+.linkbtn { border:0; background:none; color:var(--accent); font-weight:600; padding:0; cursor:pointer; text-align:left; font-size:.85rem }
+
+/* Training */
+.progress { display:grid; gap:6px }
+.bar { height:8px; border-radius:99px; background:var(--line); overflow:hidden }
+.bar span { display:block; height:100%; background:var(--accent); border-radius:99px }
+.feedback { border-radius:10px; padding:12px; display:grid; gap:6px; font-size:.9rem; border:1px solid var(--line); background:var(--surface-2) }
+.feedback.ok { border-color:var(--c-best) } .feedback.part { border-color:var(--c-inaccuracy) } .feedback.no { border-color:var(--c-blunder) }
+.feedback b.big { font-size:1rem }
+.check { color:var(--c-best); font-weight:800 }
+
+/* Trophäen */
+.hero { display:grid; grid-template-columns:auto minmax(0,1fr); gap:20px; align-items:center }
+.hero .piece { width:96px; height:96px; border-radius:14px; display:grid; place-items:center; background:conic-gradient(var(--sq-dark) 0 25%, var(--sq-light) 0 50%, var(--sq-dark) 0 75%, var(--sq-light) 0) 0 0/48px 48px; border:1px solid var(--line) }
+.hero .piece svg { width:72px; height:72px }
+.hero h2 { margin:0; font-family:var(--display); font-weight:800; font-size:clamp(1.4rem,3.6vw,2.1rem); line-height:1.1; text-wrap:balance }
+.hero .sub { color:var(--muted); margin-top:4px }
+.xp { display:grid; gap:6px; margin-top:12px; max-width:520px }
+.xp .row { display:flex; justify-content:space-between; gap:12px; font-size:.82rem; color:var(--muted) }
+.chiprow { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px }
+.stat { border:1px solid var(--line); background:var(--surface-2); border-radius:999px; padding:4px 12px; font-size:.82rem }
+.stat b { font-family:var(--mono); font-weight:600 }
+@media (max-width:560px) { .hero { grid-template-columns:minmax(0,1fr) } .hero .piece { width:72px; height:72px; background-size:36px 36px } .hero .piece svg { width:54px; height:54px } }
+.sec { display:grid; gap:12px; margin-top:32px }
+.sec-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; border-bottom:2px solid var(--ink); padding-bottom:8px }
+.sec-head h3 { margin:0; font-family:var(--display); font-weight:600; font-size:1.02rem }
+.sec-head p { margin:0; color:var(--muted); font-size:.82rem }
+.quests { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px }
+.quest { padding:12px; display:grid; gap:7px }
+.quest.plan { border-color:var(--accent); background:var(--accent-soft) }
+.quest .qt { display:flex; justify-content:space-between; gap:8px; font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-weight:700 }
+.quest strong { font-size:.95rem; line-height:1.3 }
+.fam h4 { margin:6px 0 0; font-size:.74rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+.achs { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px }
+.ach { display:grid; grid-template-columns:42px minmax(0,1fr); gap:12px; align-items:start; padding:12px; text-align:left; cursor:default }
+button.ach { cursor:pointer }
+button.ach:hover { border-color:var(--accent) }
+.medal { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; font-family:var(--display); font-weight:800; font-size:.9rem; color:#fff; background:var(--locked) }
+.t1 .medal { background:var(--bronze) } .t2 .medal { background:var(--silver) } .t3 .medal { background:var(--gold) }
+.t4 .medal { background:var(--legend); box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--legend) }
+.t0 .medal { color:var(--muted) }
+.t0 { opacity:.8 }
+.ach .body { display:grid; gap:4px; min-width:0 }
+.ach .tl { font-size:.66rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted) }
+.t1 .tl { color:var(--bronze) } .t2 .tl { color:var(--silver) } .t3 .tl { color:var(--gold) } .t4 .tl { color:var(--legend) }
+.ach .nm { font-weight:700; line-height:1.25 }
+.ach .ds { font-size:.8rem; color:var(--muted); line-height:1.35 }
+.ach .mt { display:flex; justify-content:space-between; gap:8px; font-size:.74rem; color:var(--muted); font-family:var(--mono) }
+.exlist { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; padding:12px; background:var(--surface-2); border:1px dashed var(--accent); border-radius:var(--r) }
+.exlist .chip { font-size:.76rem }
+.records { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); border-top:1px solid var(--line) }
+.rec { padding:12px 4px; border-bottom:1px solid var(--line); display:grid; gap:2px }
+.rec .v { font-family:var(--display); font-weight:600; font-size:1.3rem }
+.rec .l { font-size:.8rem; color:var(--muted) }
+.strip { display:flex; flex-wrap:wrap; gap:3px }
+.sq { width:18px; height:18px; border-radius:3px; border:0; padding:0; cursor:pointer }
+.sq.W { background:var(--c-best) } .sq.L { background:var(--c-blunder) } .sq.D { background:var(--c-good) }
+.tbl { overflow-x:auto; border:1px solid var(--line); border-radius:var(--r); background:var(--surface) }
+table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:560px }
+th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:middle }
+th { font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700 }
+tr:last-child td { border-bottom:0 }
+td.num { font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap }
+tr.click { cursor:pointer } tr.click:hover td { background:var(--accent-soft) }
+.wdl { display:flex; height:10px; border-radius:99px; overflow:hidden; min-width:100px; background:var(--line) }
+.wdl span { display:block; height:100% }
+.wdl .w { background:var(--c-best) } .wdl .d { background:var(--c-good) } .wdl .l { background:var(--c-blunder) }
+footer.foot { margin-top:36px; font-size:.74rem; color:var(--muted) }
+@media (prefers-reduced-motion: reduce) { .evalbar .fill { transition:none } }
+</style>
+<!--PIECES-->
+<header class="topbar"><div class="in">
+  <div class="brand"><h1>Kaos Schach</h1><span class="lvl" id="lvlTop"></span></div>
+  <nav class="tabs" aria-label="Bereiche">
+    <a href="#partien" data-v="partien">Partien</a>
+    <a href="#training" data-v="training">Training</a>
+    <a href="#trophaeen" data-v="trophaeen">Trophäen</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  <!-- PARTIEN -->
+  <section class="view" id="v-partien" aria-label="Partien">
+    <div class="grid3">
+      <aside class="card side">
+        <details class="filters" id="gfDetails">
+          <summary>Partien und Filter <span class="count" id="gCount2"></span></summary>
+          <div class="chips" id="gfCat"></div>
+          <div class="field"><label>Farbe</label><div class="seg" id="gfColor"></div></div>
+          <div class="field"><label>Ergebnis</label><div class="seg" id="gfRes"></div></div>
+          <div class="field"><label for="gfEnd">Partie-Ende</label><select id="gfEnd"></select></div>
+          <div class="field"><label for="gfSort">Sortierung</label><select id="gfSort"><option value="neu">Neueste zuerst</option><option value="best">Beste Partie-Elo zuerst</option><option value="worst">Schwächste Partie-Elo zuerst</option></select></div>
+          <div class="field"><label for="gfOpen">Eröffnung</label><select id="gfOpen"></select></div>
+          <div class="field"><label for="gfOpp">Gegner</label><input id="gfOpp" type="search" placeholder="Name suchen" autocomplete="off"></div>
+          <div class="count" id="gCount"></div>
+          <div class="list" id="gList"></div>
+        </details>
+      </aside>
+      <div class="boardcol">
+        <div class="player" id="gTop"></div>
+        <div class="boardrow"><div class="evalbar" id="gEval"><div class="fill"></div></div><div id="gBoard"></div></div>
+        <div class="player" id="gBot"></div>
+        <div class="controls">
+          <button class="btn" id="gStart" aria-label="Zum Anfang">⏮</button>
+          <button class="btn" id="gPrev" aria-label="Zug zurück">◀</button>
+          <button class="btn" id="gNext" aria-label="Zug vor">▶</button>
+          <button class="btn" id="gEnd" aria-label="Zum Ende">⏭</button>
+          <button class="btn" id="gErr"><span class="lg">Nächster </span>Fehler</button>
+          <span class="spacer"></span>
+          <button class="btn" id="gFlip" aria-label="Brett drehen" title="Brett drehen">⇅</button>
+        </div>
+        <section class="card pad chart"><div class="eyebrow">Gewinnchance Weiß über die Partie</div><svg id="gChart" role="img" aria-label="Gewinnchance je Halbzug"></svg>
+          <div class="legend"><span><i class="dot" style="background:var(--c-blunder)"></i>dein Patzer</span><span><i class="dot" style="background:var(--c-mistake)"></i>dein Fehler</span><span><i class="dot" style="background:var(--c-missed)"></i>Matt verpasst</span><span>Klick in die Kurve springt zum Zug</span></div></section>
+      </div>
+      <div class="right">
+        <section class="card pad comment" id="gComment" aria-live="polite"></section>
+        <section class="card pad" id="gSummary"></section>
+        <details class="card pad scale" id="gScale"><summary>Bewertungsskala (wie Chess.com)</summary><div class="scale-rows" id="gScaleRows"></div></details>
+        <section class="card"><div class="moves" id="gMoves"></div></section>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRAINING -->
+  <section class="view" id="v-training" aria-label="Training" hidden>
+    <div class="grid3">
+      <aside class="card side">
+        <div class="progress"><div class="eyebrow">Fortschritt</div><div class="bar"><span id="tBar"></span></div><div class="count" id="tProg"></div></div>
+        <details class="filters" id="tfDetails">
+          <summary>Stellungen und Filter <span class="count" id="tCount2"></span></summary>
+          <div class="field"><label>Art des Fehlers</label><div class="seg" id="tfType"></div></div>
+          <div class="chips" id="tfCat"></div>
+          <div class="field"><label>Status</label><div class="seg" id="tfState"></div></div>
+          <div class="count" id="tCount"></div>
+          <div class="list" id="tList"></div>
+        </details>
+      </aside>
+      <div class="boardcol">
+        <div class="player" id="tTop"></div>
+        <div class="boardrow"><div class="evalbar" id="tEval"><div class="fill"></div></div><div id="tBoard"></div></div>
+        <div class="player" id="tBot"></div>
+        <div class="controls">
+          <button class="btn" id="tRetry">Nochmal</button>
+          <button class="btn" id="tShow">Lösung zeigen</button>
+          <span class="spacer"></span>
+          <button class="btn primary" id="tNext">Nächste Stellung</button>
+        </div>
+      </div>
+      <div class="right">
+        <section class="card pad comment" id="tTask" aria-live="polite"></section>
+        <section class="card pad" id="tHow"><div class="eyebrow">So geht's</div><p class="note" style="margin-top:6px">Ziehe die Figur oder tippe erst die Figur, dann das Zielfeld. Gelöst ist die Stellung, wenn dein Zug höchstens 5 Prozentpunkte unter dem besten liegt; bei „Matt verpasst“ muss dein Zug das Matt erzwingen. Bewertet wird jeder legale Zug mit Stockfish 19 (Tiefe 10).</p></section>
+      </div>
+    </div>
+  </section>
+
+  <!-- TROPHÄEN -->
+  <section class="view" id="v-trophaeen" aria-label="Trophäen" hidden>
+    <div id="trophies"></div>
+  </section>
+
+  <footer class="foot" id="foot"></footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+  const CLS = {
+    brilliant:{de:"Brillant",sym:"!!",v:"--c-brilliant"}, great:{de:"Toll",sym:"!",v:"--c-great"},
+    best:{de:"Bester Zug",sym:"★",v:"--c-best"}, excellent:{de:"Exzellent",sym:"+",v:"--c-excellent"}, good:{de:"Gut",sym:"✓",v:"--c-good"},
+    inaccuracy:{de:"Ungenauigkeit",sym:"?!",v:"--c-inaccuracy"}, mistake:{de:"Fehler",sym:"?",v:"--c-mistake"},
+    blunder:{de:"Patzer",sym:"??",v:"--c-blunder"}, missed_mate:{de:"Matt verpasst",sym:"#?",v:"--c-missed"},
+    miss:{de:"Chance verpasst",sym:"✕",v:"--c-miss"}, forced:{de:"Erzwungen",sym:"□",v:"--c-forced"},
+  };
+  const RULE = {
+    brilliant:"Bester oder fast bester Zug, der eine Figur opfert (mind. 2 Punkte Material), ohne vorher schon klar zu gewinnen.",
+    great:"Der einzige gute Zug: Der Engine-Zug, und der zweitbeste Zug wäre mindestens 10 Prozentpunkte schlechter.",
+    best:"Genau der Zug, den Stockfish spielen würde.", excellent:"Verliert weniger als 2 Prozentpunkte Gewinnchance.",
+    good:"Verliert 2 bis 5 Prozentpunkte.", inaccuracy:"Verliert 5 bis 10 Prozentpunkte.", mistake:"Verliert 10 bis 20 Prozentpunkte.",
+    blunder:"Verliert mehr als 20 Prozentpunkte.", miss:"Der Gegner hat gerade einen Fehler gemacht und du standest gut, aber dein Zug bestraft ihn nicht (10+ Punkte verloren).",
+    missed_mate:"Es gab ein erzwungenes Matt, dein Zug lässt es aus.", forced:"Der einzige legale Zug.",
+  };
+  const LIMIT = { excellent:"unter 2", good:"2 bis 5", inaccuracy:"5 bis 10", mistake:"10 bis 20", blunder:"über 20" };
+  const ORDER = ["brilliant","great","best","excellent","good","inaccuracy","mistake","blunder","miss","missed_mate","forced"];
+  const ERR = ["mistake","blunder","missed_mate","miss"];
+  const SYM_ALWAYS = ["brilliant","great","inaccuracy","mistake","blunder","miss","missed_mate"];
+  const ENDE = { checkmated:"Matt", resigned:"Aufgabe", timeout:"Zeit", abandoned:"Abbruch", agreed:"Remis vereinbart", repetition:"Stellungswiederholung",
+    stalemate:"Patt", insufficient:"Zu wenig Material", timevsinsufficient:"Zeit, zu wenig Material", "50move":"50-Züge-Regel", unbekannt:"Unbekannt" };
+  function endText(g) {
+    const e = g.ende;
+    if (g.outcome === "D") return "Remis · " + (ENDE[e] || e);
+    const w = g.outcome === "W";
+    return ({ checkmated: w ? "Sieg durch Matt" : "Niederlage durch Matt", resigned: w ? "Sieg · Gegner gibt auf" : "Niederlage · aufgegeben",
+      timeout: w ? "Sieg auf Zeit" : "Niederlage auf Zeit", abandoned: w ? "Sieg · Gegner bricht ab" : "Niederlage · abgebrochen" })[e] || (w ? "Sieg" : "Niederlage") + " · " + (ENDE[e] || e);
+  }
+  const eloOf = (g, s) => g.elo && g.elo[s] ? g.elo[s].elo : null;
+  const CATS = ["1 Min","3–5 Min","10 Min","30+ Min","Bots / Coach"];
+  const VAL = { p:1, n:3, b:3, r:5, q:9, k:0 }, START = { p:8, n:2, b:2, r:2, q:1 }, PNAME = { p:"Bauer", n:"Springer", b:"Läufer", r:"Turm", q:"Dame" };
+  function material(B) {
+    const cnt = { w:{p:0,n:0,b:0,r:0,q:0}, b:{p:0,n:0,b:0,r:0,q:0} }; let sum = { w:0, b:0 };
+    Object.values(B).forEach(pc => { const c = pc === pc.toUpperCase() ? "w" : "b", t = pc.toLowerCase(); if (t !== "k") { cnt[c][t]++; sum[c] += VAL[t]; } });
+    const took = c => { const o = c === "w" ? "b" : "w", r = []; ["q","r","b","n","p"].forEach(t => { for (let i = 0; i < Math.max(0, START[t] - cnt[o][t]); i++) r.push(o + t); }); return r; };
+    return { took:{ w:took("w"), b:took("b") }, diff:sum.w - sum.b };
+  }
+  function matHtml(B, c) {
+    const m = material(B), lead = c === "w" ? m.diff : -m.diff;
+    const icons = m.took[c].map(id => `<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#pc-${id}"/></svg>`).join("");
+    return `<span class="mat" title="geschlagene Figuren">${icons}${lead > 0 ? `<span class="plus">+${lead}</span>` : ""}</span>`;
+  }
+  function captureText(Bbefore, uci) {
+    const from = uci.slice(0, 2), to = uci.slice(2, 4), pc = Bbefore[from]; let t = Bbefore[to];
+    if (!t && pc && pc.toLowerCase() === "p" && from[0] !== to[0]) t = "p";
+    return t ? `schlägt ${PNAME[t.toLowerCase()]} (${VAL[t.toLowerCase()]})` : "";
+  }
+  function matLine(B) { const d = material(B).diff; return d === 0 ? "Material ausgeglichen" : `Material: ${d > 0 ? "Weiß" : "Schwarz"} +${Math.abs(d)}`; }
+  const cssv = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const fmtDate = t => t ? new Date(t * 1000).toLocaleDateString("de-DE", { day:"2-digit", month:"2-digit", year:"2-digit" }) : "";
+  const moveNo = i => Math.ceil(i / 2) + (i % 2 ? "." : "…");
+  const accOf = d => Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * d) - 3.1669));
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  let APP = null, GAMES = [], PUZ = [], byId = {}, puzByPly = {};
+
+  /* ---------- Brett (eine SVG-Fläche) ---------- */
+  function parseFen(fen) {
+    const B = {}, rows = fen.split(" ")[0].split("/");
+    rows.forEach((row, ri) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) f += +ch; else { B["abcdefgh"[f] + (8 - ri)] = ch; f++; } } });
+    return B;
+  }
+  function applyUci(B, uci) {
+    const N = Object.assign({}, B), from = uci.slice(0, 2), to = uci.slice(2, 4), pc = N[from];
+    if (!pc) return N;
+    delete N[from];
+    if (pc.toLowerCase() === "k" && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2) {
+      const r = from[1], kside = to[0] === "g";
+      const rf = (kside ? "h" : "a") + r, rt = (kside ? "f" : "d") + r;
+      N[rt] = N[rf]; delete N[rf];
+    }
+    if (pc.toLowerCase() === "p" && from[0] !== to[0] && !N[to]) delete N[to[0] + from[1]];
+    N[to] = uci.length > 4 ? (pc === "P" ? uci[4].toUpperCase() : uci[4]) : pc;
+    return N;
+  }
+  function Board(host) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 320 320"); svg.setAttribute("class", "board"); svg.setAttribute("role", "img");
+    host.innerHTML = ""; host.appendChild(svg);
+    const st = { B:{}, flip:false, last:null, arrow:null, tag:null, sel:null, targets:[], interactive:false, onMove:null, legal:[], drag:null, label:"" };
+    const xy = sq => { const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1; return [(st.flip ? 7 - f : f) * 40, (st.flip ? r : 7 - r) * 40]; };
+    function sqAt(evt) {
+      const rc = svg.getBoundingClientRect(), x = (evt.clientX - rc.left) / rc.width * 8, y = (evt.clientY - rc.top) / rc.height * 8;
+      if (x < 0 || y < 0 || x >= 8 || y >= 8) return null;
+      const vf = Math.floor(x), vr = Math.floor(y), f = st.flip ? 7 - vf : vf, r = st.flip ? vr : 7 - vr;
+      return "abcdefgh"[f] + (r + 1);
+    }
+    function draw() {
+      let h = "";
+      for (let vr = 0; vr < 8; vr++) for (let vf = 0; vf < 8; vf++) {
+        const f = st.flip ? 7 - vf : vf, r = st.flip ? vr : 7 - vr, light = (f + r) % 2 === 1;
+        h += `<rect x="${vf * 40}" y="${vr * 40}" width="40" height="40" fill="var(${light ? "--sq-light" : "--sq-dark"})"/>`;
+        if (vf === 0) h += `<text x="2.5" y="${vr * 40 + 9}" font-size="7.5" font-weight="700" font-family="var(--mono)" fill="var(${light ? "--sq-dark" : "--sq-light"})">${r + 1}</text>`;
+        if (vr === 7) h += `<text x="${vf * 40 + 37.5}" y="317" text-anchor="end" font-size="7.5" font-weight="700" font-family="var(--mono)" fill="var(${light ? "--sq-dark" : "--sq-light"})">${"abcdefgh"[f]}</text>`;
+      }
+      if (st.last) for (const sq of [st.last.slice(0, 2), st.last.slice(2, 4)]) { const [x, y] = xy(sq); h += `<rect x="${x}" y="${y}" width="40" height="40" fill="var(--sq-hl)" opacity=".5"/>`; }
+      if (st.sel) { const [x, y] = xy(st.sel); h += `<rect x="${x + 1.5}" y="${y + 1.5}" width="37" height="37" fill="none" stroke="var(--sel)" stroke-width="3"/>`; }
+      for (const [sq, pc] of Object.entries(st.B)) {
+        if (st.drag && st.drag.from === sq) continue;
+        const [x, y] = xy(sq), id = (pc === pc.toUpperCase() ? "w" : "b") + pc.toLowerCase();
+        h += `<use href="#pc-${id}" x="${x}" y="${y}" width="40" height="40"/>`;
+      }
+      for (const t of st.targets) {
+        const [x, y] = xy(t);
+        h += st.B[t] ? `<circle cx="${x + 20}" cy="${y + 20}" r="17" fill="none" stroke="var(--sel)" stroke-width="3" opacity=".55"/>`
+                     : `<circle cx="${x + 20}" cy="${y + 20}" r="6" fill="var(--sel)" opacity=".5"/>`;
+      }
+      if (st.arrow) {
+        const [x1, y1] = xy(st.arrow.uci.slice(0, 2)).map(v => v + 20), [x2, y2] = xy(st.arrow.uci.slice(2, 4)).map(v => v + 20);
+        const a = Math.atan2(y2 - y1, x2 - x1), L = Math.hypot(x2 - x1, y2 - y1) - 13, ex = x1 + Math.cos(a) * L, ey = y1 + Math.sin(a) * L;
+        const c = `var(${st.arrow.color || "--c-best"})`;
+        h += `<g opacity=".85"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${c}" stroke-width="7" stroke-linecap="round"/><polygon points="${x2},${y2} ${ex - Math.sin(a) * 11},${ey + Math.cos(a) * 11} ${ex + Math.sin(a) * 11},${ey - Math.cos(a) * 11}" fill="${c}"/></g>`;
+      }
+      if (st.tag) { const [x, y] = xy(st.tag.sq); h += `<g><circle cx="${x + 34}" cy="${y + 6}" r="8" fill="var(${st.tag.v})" stroke="var(--surface)" stroke-width="1.5"/><text x="${x + 34}" y="${y + 9}" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="var(--body)">${st.tag.sym}</text></g>`; }
+      if (st.drag && st.drag.pc) { const id = (st.drag.pc === st.drag.pc.toUpperCase() ? "w" : "b") + st.drag.pc.toLowerCase(); h += `<use href="#pc-${id}" x="${st.drag.x - 22}" y="${st.drag.y - 22}" width="44" height="44" style="pointer-events:none"/>`; }
+      svg.innerHTML = h;
+      svg.classList.toggle("interactive", st.interactive);
+      svg.setAttribute("aria-label", st.label || "Schachbrett");
+    }
+    function legalFrom(sq) { return st.legal.filter(u => u.startsWith(sq)).map(u => u.slice(2, 4)); }
+    function tryMove(from, to) {
+      const cand = st.legal.filter(u => u.slice(0, 4) === from + to);
+      if (!cand.length) return false;
+      const uci = cand.find(u => u.length === 4 || u[4] === "q") || cand[0];
+      st.sel = null; st.targets = []; draw(); st.onMove && st.onMove(uci); return true;
+    }
+    svg.addEventListener("pointerdown", e => {
+      if (!st.interactive) return;
+      const sq = sqAt(e); if (!sq) return;
+      if (st.sel && st.targets.includes(sq)) { tryMove(st.sel, sq); return; }
+      if (legalFrom(sq).length) {
+        st.sel = sq; st.targets = Array.from(new Set(legalFrom(sq)));
+        const rc = svg.getBoundingClientRect();
+        st.drag = { from:sq, pc:st.B[sq], x:(e.clientX - rc.left) / rc.width * 320, y:(e.clientY - rc.top) / rc.height * 320, moved:false };
+        try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+      } else { st.sel = null; st.targets = []; }
+      draw(); e.preventDefault();
+    });
+    svg.addEventListener("pointermove", e => {
+      if (!st.drag) return;
+      const rc = svg.getBoundingClientRect();
+      st.drag.x = (e.clientX - rc.left) / rc.width * 320; st.drag.y = (e.clientY - rc.top) / rc.height * 320; st.drag.moved = true; draw();
+    });
+    svg.addEventListener("pointerup", e => {
+      if (!st.drag) return;
+      const d = st.drag; st.drag = null;
+      const sq = sqAt(e);
+      if (d.moved && sq && sq !== d.from && tryMove(d.from, sq)) return;
+      draw();
+    });
+    svg.addEventListener("pointercancel", () => { st.drag = null; draw(); });
+    return { set(o) { Object.assign(st, o); draw(); }, get state() { return st; } };
+  }
+  function evalBar(el, w, flip) { el.querySelector(".fill").style.height = Math.max(0, Math.min(100, w)) + "%"; el.classList.toggle("flip", flip); }
+  function evalStr(p) { if (p.mate === 0) return "Matt"; if (p.mate != null) return "Matt in " + Math.abs(p.mate); if (p.cp == null) return ""; const v = p.cp / 100; return (v > 0 ? "+" : "") + v.toFixed(1); }
+  function playerHtml(pl, B, c, pe) { return `<span>${esc(pl.name)} <span class="rt">${pl.rating}${pe ? ` · Partie ~${pe}` : ""}</span>${B ? matHtml(B, c) : ""}</span>${pl.name.toLowerCase() === APP.name.toLowerCase() ? '<span class="badge">Du</span>' : ""}`; }
+
+  /* ---------- Fortschritt Training (db, sonst Browser) ---------- */
+  const progress = { solved:{}, db:null, ref:null };
+  async function initProgress() {
+    try { progress.solved = JSON.parse(store.get("kaos-solved") || "{}"); } catch (e) { progress.solved = {}; }
+    if (!window.claude || !window.claude.use) return;
+    try {
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      if (!db || !user) return;
+      const id = await user.id(); if (!id) return;
+      progress.ref = db.collection("data/users/" + id).doc("training");
+      const snap = await progress.ref.get();
+      if (snap.exists) { const d = snap.data() || {}; progress.solved = Object.assign({}, progress.solved, d.solved || {}); }
+      progress.db = db; renderTrainingList(); renderProgress();
+    } catch (e) { /* bleibt bei der Speicherung im Browser */ }
+  }
+  let saving = Promise.resolve();
+  function saveProgress() {
+    store.set("kaos-solved", JSON.stringify(progress.solved));
+    if (!progress.ref) return;
+    const data = { solved: progress.solved, solvedCount: Object.keys(progress.solved).length, updated: new Date().toISOString() };
+    saving = saving.then(() => progress.ref.set(data)).catch(() => {});
+  }
+
+  /* ---------- PARTIEN ---------- */
+  const gs = { cat:"Alle", color:"alle", res:"alle", end:"alle", sort:"neu", open:"alle", opp:"", cur:null, ply:0, flip:false };
+  let gBoard;
+  function gFiltered() {
+    const q = gs.opp.trim().toLowerCase();
+    const L = GAMES.filter(g => (gs.end === "alle" || g.ende === gs.end) && (gs.cat === "Alle" || g.cat === gs.cat) && (gs.color === "alle" || g.color === gs.color)
+      && (gs.res === "alle" || g.outcome === gs.res) && (gs.open === "alle" || (gs.open.startsWith("g:") ? g.group === gs.open.slice(2) : g.family === gs.open.slice(2)))
+      && (!q || oppOf(g).name.toLowerCase().includes(q)));
+    if (gs.sort !== "neu") { const d = gs.sort === "best" ? -1 : 1, v = g => eloOf(g, g.color); L.sort((a, b) => (v(a) == null) - (v(b) == null) || d * (v(a) - v(b))); }
+    return L;
+  }
+  const oppOf = g => g.color === "w" ? g.black : g.white;
+  function perfOf(list) {
+    const l = list.filter(g => g.cat !== "Bots / Coach"); if (!l.length) return null;
+    const opp = l.reduce((s, g) => s + oppOf(g).rating, 0) / l.length, w = l.filter(g => g.outcome === "W").length, lo = l.filter(g => g.outcome === "L").length;
+    return { v:Math.round(opp + 400 * (w - lo) / l.length), n:l.length };
+  }
+  function seg(el, opts, val, on) {
+    el.innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${v === val}">${l}</button>`).join("");
+    el.querySelectorAll("button").forEach(b => b.onclick = () => on(b.dataset.v));
+  }
+  function renderGameFilters() {
+    const cats = ["Alle", ...CATS];
+    $("gfCat").innerHTML = cats.map(c => { const n = c === "Alle" ? GAMES.length : GAMES.filter(g => g.cat === c).length;
+      return `<button type="button" class="chip" data-v="${esc(c)}" aria-pressed="${c === gs.cat}"${n ? "" : ' disabled title="Noch keine Partie"'}>${esc(c)} <span class="muted">${n}</span></button>`; }).join("");
+    $("gfCat").querySelectorAll("button").forEach(b => b.onclick = () => { gs.cat = b.dataset.v; renderGameFilters(); renderGameList(); });
+    seg($("gfColor"), [["alle","Alle"],["w","Weiß"],["b","Schwarz"]], gs.color, v => { gs.color = v; renderGameFilters(); renderGameList(); });
+    seg($("gfRes"), [["alle","Alle"],["W","Siege"],["D","Remis"],["L","Niederl."]], gs.res, v => { gs.res = v; renderGameFilters(); renderGameList(); });
+    const ends = {}; GAMES.forEach(g => ends[g.ende] = (ends[g.ende] || 0) + 1);
+    $("gfEnd").innerHTML = `<option value="alle">Alle Arten</option>` + Object.entries(ends).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<option value="${esc(k)}"${k === gs.end ? " selected" : ""}>${esc(ENDE[k] || k)} (${n})</option>`).join("");
+    $("gfSort").value = gs.sort;
+    const groups = {};
+    GAMES.forEach(g => { const G = groups[g.group] || (groups[g.group] = { n:0, fams:{} }); G.n++; G.fams[g.family] = (G.fams[g.family] || 0) + 1; });
+    const sel = v => v === gs.open ? " selected" : "";
+    let o = `<option value="alle"${sel("alle")}>Alle Eröffnungen</option>`;
+    Object.entries(groups).sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0])).forEach(([gname, G]) => {
+      o += `<optgroup label="${esc(gname)}"><option value="g:${esc(gname)}"${sel("g:" + gname)}>${esc(gname)} – alle (${G.n})</option>`;
+      const fams = Object.entries(G.fams).sort((a, b) => b[1] - a[1]);
+      if (fams.length > 1 || fams[0][0] !== gname) fams.forEach(([f, n]) => o += `<option value="v:${esc(f)}"${sel("v:" + f)}>  ${esc(f)} (${n})</option>`);
+      o += `</optgroup>`;
+    });
+    $("gfOpen").innerHTML = o;
+  }
+  function renderGameList() {
+    const list = gFiltered();
+    const perf = perfOf(list);
+    $("gCount").innerHTML = `${list.length} von ${GAMES.length} Partien` + (perf ? ` · Leistungs-Elo <b class="perf" title="Ø Gegner-Elo + 400 × (Siege − Niederlagen) / Partien, ohne Coach-Partien">${perf.v}</b>${perf.n < 10 ? ' <span title="Unter 10 Partien kaum aussagekräftig">(wenige Partien)</span>' : ""}` : "");
+    $("gCount2").textContent = `${list.length}/${GAMES.length}`;
+    $("gList").innerHTML = list.length ? list.map(g => {
+      const o = oppOf(g);
+      return `<button type="button" class="item" data-id="${g.id}" aria-current="${gs.cur && gs.cur.id === g.id}">
+        <span class="res ${g.outcome}">${g.outcome === "W" ? "S" : g.outcome === "L" ? "N" : "R"}</span>
+        <span style="min-width:0"><div class="t1"><i class="side-dot ${g.color}" title="Du mit ${g.color === "w" ? "Weiß" : "Schwarz"}"></i>${esc(o.name)} <span class="mono muted" style="font-size:.74rem">${o.rating}</span></div><div class="t2">${esc(ENDE[g.ende] || g.ende)} · ${esc(g.opening || "Eröffnung unbekannt")}</div></span>
+        <span class="t3">${eloOf(g, g.color) ? `<b class="pe" title="Deine geschätzte Partie-Elo">~${eloOf(g, g.color)}</b> · ` : ""}${esc(g.cat)}<br>${fmtDate(g.end)}</span></button>`;
+    }).join("") : `<div class="empty">Keine Partie passt zu den Filtern.</div>`;
+    $("gList").querySelectorAll(".item").forEach(b => b.onclick = () => openGame(b.dataset.id));
+  }
+  function firstErr(g, from) {
+    for (let i = from + 1; i < g.plies.length; i++) { const mover = i % 2 === 1 ? "w" : "b"; if (mover === g.color && ERR.includes(g.plies[i].cls)) return i; }
+    return null;
+  }
+  function openGame(id, ply) {
+    const g = byId[id]; if (!g) return;
+    gs.cur = g; gs.flip = g.color === "b";
+    gs.ply = ply != null ? Math.max(0, Math.min(g.plies.length - 1, ply)) : (firstErr(g, 0) ?? 0);
+    renderGameList(); renderGameSummary(); renderMoves(); drawChart(); showGame(); setHash("g" + g.id + "-" + gs.ply);
+  }
+  function renderGameSummary() {
+    const g = gs.cur, mc = g.color, op = mc === "w" ? "b" : "w", cnt = { w:{}, b:{} }, ac = { w:[], b:[] };
+    g.plies.slice(1).forEach((p, i) => { const s = i % 2 === 0 ? "w" : "b"; cnt[s][p.cls] = (cnt[s][p.cls] || 0) + 1; ac[s].push(accOf(p.drop)); });
+    const a = s => ac[s].length ? (ac[s].reduce((x, y) => x + y, 0) / ac[s].length).toFixed(1) + " %" : "–";
+    let rows = "";
+    ORDER.forEach(k => { if ((cnt.w[k] || 0) + (cnt.b[k] || 0)) rows += `<div><i class="dot" style="background:var(${CLS[k].v})"></i>${CLS[k].de}</div><div class="n">${cnt[mc][k] || 0}</div><div class="n">${cnt[op][k] || 0}</div>`; });
+    $("gSummary").innerHTML = `<div class="eyebrow" style="margin-bottom:8px">Zusammenfassung · ${esc(g.cat)} · ${fmtDate(g.end)}</div>
+      <p class="endline"><b>${esc(endText(g))}</b></p>
+      <div class="sumgrid"><div></div><div class="h">Du</div><div class="h">Gegner</div><div>Rating</div><div class="n">${(mc === "w" ? g.white : g.black).rating}</div><div class="n">${(op === "w" ? g.white : g.black).rating}</div>
+      <div title="Geschätzt nur aus der Zugqualität dieser Partie (Ø Bauernverlust pro Zug), ohne Rating">Partie-Elo <span class="muted">(geschätzt)</span></div><div class="n"><b>${eloOf(g, mc) ?? "–"}</b></div><div class="n"><b>${eloOf(g, op) ?? "–"}</b></div>
+      <div>Ø Verlust pro Zug</div><div class="n">${g.elo && g.elo[mc] ? g.elo[mc].acpl + " cp" : "–"}</div><div class="n">${g.elo && g.elo[op] ? g.elo[op].acpl + " cp" : "–"}</div>
+      <div>Genauigkeit</div><div class="n">${a(mc)}</div><div class="n">${a(op)}</div>${rows}</div>
+      <p class="note">Partie-Elo = 3100 · e<sup>−ACPL/100</sup>, gemessen mit Stockfish. Schwankt je Partie stark; unter 8 Zügen keine Angabe.</p>
+      <div style="margin-top:10px"><a class="link" href="${esc(g.url)}" target="_blank" rel="noopener">Auf Chess.com öffnen</a></div>`;
+  }
+  function renderMoves() {
+    const g = gs.cur; let h = "";
+    for (let i = 1; i < g.plies.length; i += 2) {
+      h += `<div class="no">${Math.ceil(i / 2)}.</div>`;
+      [i, i + 1].forEach(j => { const p = g.plies[j]; h += p ? `<button type="button" class="mvb" data-i="${j}" aria-current="${j === gs.ply}" title="${CLS[p.cls].de}"><i style="background:var(${CLS[p.cls].v})"></i>${esc(p.san)}${SYM_ALWAYS.includes(p.cls) ? `<span class="sym" style="color:var(${CLS[p.cls].v})">${CLS[p.cls].sym}</span>` : ""}</button>` : "<div></div>"; });
+    }
+    $("gMoves").innerHTML = h;
+    $("gMoves").querySelectorAll(".mvb").forEach(b => b.onclick = () => goPly(+b.dataset.i));
+  }
+  function showGame() {
+    const g = gs.cur, p = g.plies[gs.ply], mover = gs.ply % 2 === 1 ? "w" : "b", mine = mover === g.color;
+    const showArrow = gs.ply > 0 && p.best_uci && p.uci !== p.best_uci && !["brilliant","great","best","excellent","good","forced"].includes(p.cls);
+    gBoard.set({ B:parseFen(p.fen), flip:gs.flip, last:gs.ply ? p.uci : null, tag:gs.ply ? { sq:p.uci.slice(2, 4), v:CLS[p.cls].v, sym:CLS[p.cls].sym } : null,
+      arrow:showArrow ? { uci:p.best_uci, color:"--c-best" } : null, interactive:false, legal:[], sel:null, targets:[],
+      label:gs.ply ? `Stellung nach ${moveNo(gs.ply)} ${p.san}` : "Startstellung" });
+    evalBar($("gEval"), p.w, gs.flip);
+    const Bnow = parseFen(p.fen);
+    $("gTop").innerHTML = playerHtml(gs.flip ? g.white : g.black, Bnow, gs.flip ? "w" : "b", eloOf(g, gs.flip ? "w" : "b")); $("gBot").innerHTML = playerHtml(gs.flip ? g.black : g.white, Bnow, gs.flip ? "b" : "w", eloOf(g, gs.flip ? "b" : "w"));
+    const c = $("gComment");
+    if (!gs.ply) { c.innerHTML = `<div class="eyebrow">Startstellung</div><p>${esc(g.opening || "")}</p><p class="note">„Nächster Fehler“ springt zu deinen schweren Fehlern.</p>`; }
+    else {
+      const prev = g.plies[gs.ply - 1], before = mover === "w" ? prev.w : 100 - prev.w, after = mover === "w" ? p.w : 100 - p.w;
+      const pz = mine && ERR.includes(p.cls) ? puzByPly[g.id + "-" + gs.ply] : null;
+      c.innerHTML = `<div class="eyebrow">${mine ? "Dein Zug" : "Zug des Gegners"} · ${moveNo(gs.ply)}${evalStr(p) ? ` · Bewertung (Weiß-Sicht) ${evalStr(p)}` : ""}</div>
+        <div class="head"><span class="pill" style="background:var(${CLS[p.cls].v})">${CLS[p.cls].sym} ${CLS[p.cls].de}</span><span class="mv">${esc(p.san)}</span></div>
+        <p>Gewinnchance ${mine ? "für dich" : "für den Gegner"}: <b>${Math.round(before)} %</b> → <b>${Math.round(after)} %</b></p>
+        <p class="why">${LIMIT[p.cls] ? `Verlust <b>${Math.round(p.drop)} Prozentpunkte</b> (${CLS[p.cls].de} = ${LIMIT[p.cls]}).` : RULE[p.cls]}</p>
+        <p class="note">${[captureText(parseFen(prev.fen), p.uci), matLine(parseFen(p.fen))].filter(Boolean).join(" · ")}</p>
+        ${showArrow ? `<p>Besser war <b class="mono">${esc(p.best)}</b> (grüner Pfeil).</p>` : ""}
+        ${pz ? `<button type="button" class="btn primary" id="gTry" style="justify-self:start">Selbst probieren</button>` : ""}
+        ${p.clock != null ? `<p class="note">Uhr nach dem Zug: ${Math.floor(p.clock / 60)}:${String(Math.floor(p.clock % 60)).padStart(2, "0")}</p>` : ""}`;
+      if (pz) $("gTry").onclick = () => { go("training"); openPuzzle(pz.id); };
+    }
+    $("gMoves").querySelectorAll(".mvb").forEach(b => {
+      const on = +b.dataset.i === gs.ply; b.setAttribute("aria-current", on);
+      if (on) { const box = $("gMoves"), top = b.offsetTop - box.offsetTop; if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - 30) box.scrollTop = Math.max(0, top - 60); }
+    });
+    moveCursor();
+  }
+  function goPly(i) { if (!gs.cur) return; gs.ply = Math.max(0, Math.min(gs.cur.plies.length - 1, i)); showGame(); setHash("g" + gs.cur.id + "-" + gs.ply); }
+  /* Kurve in echten Pixeln, damit Punkte rund bleiben */
+  let chartPts = [];
+  function drawChart() {
+    const g = gs.cur, svg = $("gChart"); if (!g) return;
+    const W = Math.max(200, Math.round(svg.getBoundingClientRect().width || 600)), H = 130, n = g.plies.length - 1;
+    const x = i => n ? 4 + (i / n) * (W - 8) : 4, y = w => 4 + (1 - w / 100) * (H - 8);
+    chartPts = g.plies.map((p, i) => x(i));
+    const pts = g.plies.map((p, i) => `${x(i).toFixed(1)},${y(p.w).toFixed(1)}`).join(" ");
+    let marks = "";
+    g.plies.forEach((p, i) => { if (i && (i % 2 === 1 ? "w" : "b") === g.color && ERR.includes(p.cls)) marks += `<circle cx="${x(i)}" cy="${y(p.w)}" r="4.5" fill="var(${CLS[p.cls].v})" stroke="var(--surface)" stroke-width="1.5"/>`; });
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.innerHTML = `<rect x="0" y="0" width="${W}" height="${H}" rx="6" fill="var(--black-side)"/><polygon points="4,${H - 4} ${pts} ${W - 4},${H - 4}" fill="var(--white-side)"/>
+      <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" stroke="var(--muted)" stroke-dasharray="4 4"/><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>${marks}
+      <line id="gCursor" x1="0" y1="0" x2="0" y2="${H}" stroke="var(--accent)" stroke-width="2"/>`;
+    moveCursor();
+  }
+  function moveCursor() { const c = $("gCursor"); if (c && chartPts.length) { c.setAttribute("x1", chartPts[gs.ply]); c.setAttribute("x2", chartPts[gs.ply]); } }
+  $("gChart").addEventListener("click", e => { if (!gs.cur) return; const r = $("gChart").getBoundingClientRect(); goPly(Math.round((e.clientX - r.left) / r.width * (gs.cur.plies.length - 1))); });
+  $("gStart").onclick = () => goPly(0); $("gEnd").onclick = () => goPly(1e9); $("gPrev").onclick = () => goPly(gs.ply - 1); $("gNext").onclick = () => goPly(gs.ply + 1);
+  $("gFlip").onclick = () => { gs.flip = !gs.flip; showGame(); };
+  $("gErr").onclick = () => { const n = firstErr(gs.cur, gs.ply); goPly(n ?? (firstErr(gs.cur, 0) ?? gs.ply)); };
+  $("gfOpen").onchange = e => { gs.open = e.target.value; renderGameList(); };
+  $("gfEnd").onchange = e => { gs.end = e.target.value; renderGameList(); };
+  $("gfSort").onchange = e => { gs.sort = e.target.value; renderGameList(); };
+  $("gfOpp").oninput = e => { gs.opp = e.target.value; renderGameList(); };
+
+  /* ---------- TRAINING ---------- */
+  const ts = { type:"alle", cat:"Alle", state:"offen", cur:null, done:false, tries:0 };
+  let tBoard;
+  const typeOf = p => p.played.cls;
+  function tFiltered() {
+    return PUZ.filter(p => (ts.type === "alle" || typeOf(p) === ts.type) && (ts.cat === "Alle" || p.cat === ts.cat)
+      && (ts.state === "alle" || (ts.state === "offen" ? !progress.solved[p.id] : !!progress.solved[p.id])));
+  }
+  function renderTrainingFilters() {
+    seg($("tfType"), [["alle","Alle"],["blunder","Patzer"],["mistake","Fehler"],["miss","Chance"],["missed_mate","Matt"]], ts.type, v => { ts.type = v; renderTrainingFilters(); renderTrainingList(); });
+    const cats = ["Alle", ...CATS];
+    $("tfCat").innerHTML = cats.map(c => { const n = c === "Alle" ? PUZ.length : PUZ.filter(p => p.cat === c).length;
+      return `<button type="button" class="chip" data-v="${esc(c)}" aria-pressed="${c === ts.cat}"${n ? "" : ' disabled title="Keine Stellungen"'}>${esc(c)} <span class="muted">${n}</span></button>`; }).join("");
+    $("tfCat").querySelectorAll("button").forEach(b => b.onclick = () => { ts.cat = b.dataset.v; renderTrainingFilters(); renderTrainingList(); });
+    seg($("tfState"), [["offen","Offen"],["geloest","Gelöst"],["alle","Alle"]], ts.state, v => { ts.state = v; renderTrainingFilters(); renderTrainingList(); });
+  }
+  function renderProgress() {
+    const n = Object.keys(progress.solved).filter(id => PUZ.some(p => p.id === id)).length;
+    $("tBar").style.width = (PUZ.length ? 100 * n / PUZ.length : 0) + "%";
+    $("tProg").textContent = `${n} von ${PUZ.length} Stellungen gelöst` + (progress.ref ? "" : " · gespeichert in diesem Browser");
+  }
+  function renderTrainingList() {
+    const list = tFiltered();
+    $("tCount").textContent = `${list.length} Stellungen`; $("tCount2").textContent = `${list.length}`;
+    $("tList").innerHTML = list.length ? list.map(p => {
+      const g = byId[p.game], o = oppOf(g), c = CLS[typeOf(p)];
+      return `<button type="button" class="item" data-id="${p.id}" aria-current="${ts.cur && ts.cur.id === p.id}">
+        <span class="res" style="background:var(${c.v})">${progress.solved[p.id] ? "✓" : c.sym}</span>
+        <span style="min-width:0"><div class="t1">Zug ${moveNo(p.ply)} · ${c.de}</div><div class="t2">gegen ${esc(o.name)} · ${esc(g.family)}</div></span>
+        <span class="t3">${esc(p.cat)}<br>${fmtDate(p.end)}</span></button>`;
+    }).join("") : `<div class="empty">${ts.state === "offen" ? "Alles gelöst in diesem Filter." : "Keine Stellung passt zu den Filtern."}</div>`;
+    $("tList").querySelectorAll(".item").forEach(b => b.onclick = () => openPuzzle(b.dataset.id));
+  }
+  function bestOf(p) {
+    if (p.mode === "mate") { const m = p.moves.filter(x => (x.m || 0) > 0).sort((a, b) => a.m - b.m); return m[0] || p.moves[0]; }
+    return p.moves[0];
+  }
+  function openPuzzle(id) {
+    const p = PUZ.find(x => x.id === id); if (!p) return;
+    ts.cur = p; ts.done = false; ts.tries = 0;
+    const g = byId[p.game], flip = p.side === "b";
+    tBoard.set({ B:parseFen(p.fen), flip, last:p.ply > 1 ? g.plies[p.ply - 1].uci : null, arrow:null, tag:null, interactive:true,
+      legal:p.moves.map(m => m.uci), sel:null, targets:[], onMove:uci => judge(uci), label:"Übungsstellung, du bist am Zug" });
+    evalBar($("tEval"), g.plies[p.ply - 1].w, flip);
+    const Bp = parseFen(p.fen);
+    $("tTop").innerHTML = playerHtml(flip ? g.white : g.black, Bp, flip ? "w" : "b"); $("tBot").innerHTML = playerHtml(flip ? g.black : g.white, Bp, flip ? "b" : "w");
+    const c = CLS[typeOf(p)];
+    $("tTask").innerHTML = `<div class="eyebrow">${p.side === "w" ? "Weiß" : "Schwarz"} am Zug · ${moveNo(p.ply)}</div>
+      <div class="head"><span class="pill" style="background:var(${c.v})">${c.de} in deiner Partie</span>${progress.solved[p.id] ? '<span class="check">✓ schon gelöst</span>' : ""}</div>
+      <p>${p.mode === "mate" ? "Hier gab es ein erzwungenes Matt. Finde den Zug, der es erzwingt." : `Deine Gewinnchance war <b>${Math.round(p.before)} %</b>. Finde einen Zug, der sie hält.`}</p>
+      <div id="tFb"></div>
+      <button type="button" class="linkbtn" id="tGame">In der Partie ansehen</button>`;
+    $("tGame").onclick = () => { go("partien"); openGame(p.game, p.ply); };
+    $("tRetry").disabled = true; $("tShow").disabled = false;
+    renderTrainingList(); setHash("p" + p.id);
+  }
+  function judge(uci) {
+    const p = ts.cur; if (!p || ts.done) return;
+    const m = p.moves.find(x => x.uci === uci); if (!m) return;
+    ts.tries++;
+    const best = bestOf(p), played = p.moves.find(x => x.uci === p.played.uci) || { w:0, san:p.played.san };
+    const g = byId[p.game];
+    const solved = p.mode === "mate" ? (m.m || 0) > 0 : m.w >= p.moves[0].w - 5;
+    const better = !solved && m.w >= played.w + 10;
+    const after = applyUci(parseFen(p.fen), uci);
+    tBoard.set({ B:after, last:uci, interactive:false, sel:null, targets:[],
+      tag:{ sq:uci.slice(2, 4), v:solved ? "--c-best" : better ? "--c-inaccuracy" : "--c-blunder", sym:solved ? "✓" : better ? "~" : "✗" } });
+    evalBar($("tEval"), p.side === "w" ? m.w : 100 - m.w, p.side === "b");
+    const line = x => x.m != null && x.m > 0 ? `Matt in ${x.m}` : `${Math.round(x.w)} %`;
+    let cls = solved ? "ok" : better ? "part" : "no", head;
+    if (solved) head = `<b class="big">Gelöst!</b> ${esc(m.san)} ${m.uci === best.uci ? "ist der beste Zug." : "ist praktisch so gut wie der beste Zug."}`;
+    else if (better) head = `<b class="big">Besser als in der Partie</b>, aber es geht noch mehr.`;
+    else head = `<b class="big">Noch nicht.</b> ${esc(m.san)} hält die Stellung nicht.`;
+    $("tFb").innerHTML = `<div class="feedback ${cls}">${head}
+      <div class="mono" style="font-size:.84rem">Dein Zug ${esc(m.san)}: ${line(m)}<br>In der Partie ${esc(played.san)}: ${line(played)}${solved ? `<br>Bester Zug ${esc(best.san)}: ${line(best)}` : ""}</div></div>`;
+    ts.done = true; $("tRetry").disabled = false;
+    if (solved && !progress.solved[p.id]) { progress.solved[p.id] = { at:new Date().toISOString().slice(0, 10), tries:ts.tries }; saveProgress(); renderProgress(); renderTrainingList(); }
+  }
+  function showSolution() {
+    const p = ts.cur; if (!p) return; const best = bestOf(p);
+    tBoard.set({ B:parseFen(p.fen), last:null, interactive:false, sel:null, targets:[], tag:null, arrow:{ uci:best.uci, color:"--c-best" } });
+    $("tFb").innerHTML = `<div class="feedback"><b class="big">Lösung: ${esc(best.san)}</b><span class="mono" style="font-size:.84rem">${best.m > 0 ? "Matt in " + best.m : Math.round(best.w) + " % Gewinnchance"} · in der Partie: ${esc(p.played.san)}</span><span class="note">Probier es mit „Nochmal“ selbst, dann zählt die Stellung als gelöst.</span></div>`;
+    ts.done = true; $("tRetry").disabled = false;
+  }
+  $("tRetry").onclick = () => { if (ts.cur) { const t = ts.tries; openPuzzle(ts.cur.id); ts.tries = t; } };
+  $("tShow").onclick = showSolution;
+  $("tNext").onclick = () => { const l = tFiltered(); if (!l.length) return; const i = ts.cur ? l.findIndex(p => p.id === ts.cur.id) : -1; openPuzzle(l[(i + 1) % l.length].id); };
+
+  /* ---------- TROPHÄEN ---------- */
+  const pct = (a, b) => !b ? 0 : Math.max(0, Math.min(100, Math.round(100 * a / b)));
+  const bar = (n, m) => `<div class="bar" role="img" aria-label="${n} von ${m}"><span style="width:${pct(n, m)}%"></span></div>`;
+  const wdl = (W, D, L) => { const n = W + D + L; return `<div class="wdl" role="img" aria-label="${W} Siege, ${D} Remis, ${L} Niederlagen"><span class="w" style="width:${pct(W, n)}%"></span><span class="d" style="width:${pct(D, n)}%"></span><span class="l" style="width:${pct(L, n)}%"></span></div>`; };
+  const TL = ["Gesperrt","Bronze","Silber","Gold","Legende"];
+  function renderTrophies() {
+    const a = APP, L = a.level, sv = id => `<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#pc-${id}"/></svg>`;
+    const pieceId = { "♙":"wp","♘":"wn","♗":"wb","♖":"wr","♕":"wq","♔":"wk" }[L.piece] || "wp";
+    let h = `<div class="hero"><div class="piece">${sv(pieceId)}</div><div>
+      <div class="eyebrow">Chess.com · ${esc(a.name)} · Stand ${esc(a.stand)}</div><h2>Level ${L.nr}: ${esc(L.title)}</h2>
+      <div class="sub">${a.unlocked} von ${a.total} Achievements · ${L.xp} XP · ${Object.keys(progress.solved).length} Übungsstellungen gelöst</div>
+      <div class="xp"><div class="row"><span>${esc(L.title)}</span><span class="mono">${L.xp} / ${L.next ?? L.xp} XP</span><span>${esc(L.next_title || "Maximum")}</span></div>${bar(L.xp - L.from, (L.next ?? L.xp) - L.from || 1)}</div>
+      <div class="chiprow">${Object.entries(a.ratings).map(([k, v]) => `<span class="stat">${k === "rapid" ? "Rapid" : k === "bullet" ? "Bullet" : k === "blitz" ? "Blitz" : esc(k)} <b>${v.aktuell}</b></span>`).join("")}<span class="stat">Partien <b>${GAMES.length}</b></span></div></div></div>`;
+    h += `<div class="sec"><div class="sec-head"><h3>Aktive Quests</h3><p>Grün = aus deinem Trainingsplan</p></div><div class="quests">`;
+    const tq = PUZ.length ? [{ tag:"Training", name:"10 Übungsstellungen lösen", n:Math.min(10, Object.keys(progress.solved).length), nxt:10 }] : [];
+    a.plan.concat(tq).forEach(q => h += `<div class="card quest plan"><div class="qt"><span>${esc(q.tag)}</span><span>Plan</span></div><strong>${esc(q.name)}</strong>${bar(q.n, q.nxt)}<span class="mono muted" style="font-size:.8rem">${q.n} / ${q.nxt}</span></div>`);
+    if (a.ppg_rapid != null) h += `<div class="card quest plan"><div class="qt"><span>Kernziel</span><span>Plan</span></div><strong>Rapid: unter 1 Patzer pro Partie</strong>${bar(Math.max(0, 2 - a.ppg_rapid), 1)}<span class="mono muted" style="font-size:.8rem">aktuell ${a.ppg_rapid.toFixed(2)}</span></div>`;
+    a.quests.slice(0, 5).forEach(q => h += `<div class="card quest"><div class="qt"><span>${esc(q.tier)}</span><span>Medaille</span></div><strong>${esc(q.name)}</strong>${bar(q.n, q.nxt)}<span class="mono muted" style="font-size:.8rem">${q.n} / ${q.nxt}</span></div>`);
+    h += `</div></div><div class="sec"><div class="sec-head"><h3>Trophäenschrank</h3><p>Tippe auf ein Achievement, um die Partien dazu zu sehen</p></div>`;
+    const fams = []; a.cards.forEach(c => { if (!fams.includes(c.fam)) fams.push(c.fam); });
+    fams.forEach(f => {
+      h += `<div class="fam"><h4>${esc(f)}</h4><div class="achs" data-fam="${esc(f)}">`;
+      a.cards.filter(c => c.fam === f).forEach((c, i) => {
+        const idx = a.cards.indexOf(c);
+        if (c.secret) { h += `<div class="card ach t0"><div class="medal">?</div><div class="body"><span class="tl">Geheim</span><span class="nm">? ? ?</span><span class="ds">${esc(c.desc)}</span></div></div>`; return; }
+        const tag = c.ex.length ? "button" : "div";
+        h += `<${tag} ${tag === "button" ? 'type="button"' : ""} class="card ach t${c.k}" data-c="${idx}"><div class="medal">${["–","B","S","G","L"][c.k]}</div><div class="body"><span class="tl">${TL[c.k]}</span><span class="nm">${esc(c.name)}</span><span class="ds">${esc(c.desc)}</span>${c.nxt ? bar(c.n, c.nxt) : ""}<div class="mt"><span>${c.nxt ? c.n + " / " + c.nxt : c.n + " · max"}</span>${c.ex.length ? `<span>${c.ex.length} Partie${c.ex.length > 1 ? "n" : ""} ›</span>` : ""}</div></div></${tag}>`;
+      });
+      h += `</div></div>`;
+    });
+    h += `</div><div class="sec"><div class="sec-head"><h3>Rekorde</h3></div><div class="records">${Object.entries(a.records).map(([k, v]) => `<div class="rec"><span class="v">${esc(v)}</span><span class="l">${esc(k)}</span></div>`).join("")}</div></div>`;
+    const seq = GAMES.slice().sort((x, y) => (x.end || 0) - (y.end || 0));
+    h += `<div class="sec"><div class="sec-head"><h3>Alle Partien</h3><p>von der ersten bis heute · tippen öffnet die Partie</p></div><div class="strip">${seq.map(g => `<button type="button" class="sq ${g.outcome}" data-g="${g.id}" title="${fmtDate(g.end)} gegen ${esc(oppOf(g).name)}" aria-label="${g.outcome === "W" ? "Sieg" : g.outcome === "L" ? "Niederlage" : "Remis"} gegen ${esc(oppOf(g).name)}"></button>`).join("")}</div>
+      <div class="legend"><span><i class="dot" style="background:var(--c-best)"></i>Sieg</span><span><i class="dot" style="background:var(--c-good)"></i>Remis</span><span><i class="dot" style="background:var(--c-blunder)"></i>Niederlage</span></div></div>`;
+    h += `<div class="sec"><div class="sec-head"><h3>Nach Partie-Art</h3><p>Stockfish 19, Tiefe 16 · Zeitnot = unter 10 % der Startzeit</p></div><div class="tbl"><table><thead><tr><th>Art</th><th>Partien</th><th>S / R / N</th><th>Siegquote</th><th>Ø Genauigkeit</th><th>Patzer / Partie</th><th>Leistungs-Elo</th><th>Fehler meist im</th><th>Zeitnot</th></tr></thead><tbody>`;
+    a.cats.forEach(r => {
+      if (!r.n) { h += `<tr><td>${esc(r.cat)}</td><td class="num">0</td><td colspan="7" class="muted">Noch keine Partie</td></tr>`; return; }
+      h += `<tr class="click" data-cat="${esc(r.cat)}"><td>${esc(r.cat)}</td><td class="num">${r.n}</td><td>${wdl(r.W, r.D, r.L)}</td><td class="num">${pct(r.W, r.n)} %</td><td class="num">${r.acc != null ? r.acc.toFixed(1) + " %" : "–"}</td><td class="num">${r.ppg != null ? r.ppg.toFixed(2) : "–"}</td><td class="num">${r.perf != null && r.cat !== "Bots / Coach" ? r.perf : "–"}</td><td>${esc(r.phase || "–")}</td><td class="num">${r.zeitnot != null ? Math.round(100 * r.zeitnot) + " %" : "–"}</td></tr>`;
+    });
+    h += `</tbody></table></div><p class="note">Bot-Partien aus „Gegen Computer“ stehen nicht in der öffentlichen Chess.com-API; erfasst sind nur die Coach-Partien. Tippe auf eine Zeile, um diese Partien zu sehen.</p></div>`;
+    h += `<div class="sec"><div class="sec-head"><h3>Eröffnungen</h3><p>ab 2 Partien · tippen filtert die Partien</p></div><div class="tbl"><table><thead><tr><th>Eröffnung</th><th>Farbe</th><th>Partien</th><th>S / R / N</th><th>Siegquote</th></tr></thead><tbody>`;
+    a.openings.filter(o => (o.Partien || 0) >= 2).forEach(o => { const W = o.W || 0, D = o.D || 0, L2 = o.L || 0;
+      h += `<tr class="click" data-open="${esc(o.name)}" data-col="${o.farbe === "Weiß" ? "w" : "b"}"><td>${esc(o.name)}</td><td>${esc(o.farbe)}</td><td class="num">${o.Partien}</td><td>${wdl(W, D, L2)}</td><td class="num">${pct(W, o.Partien)} %</td></tr>`; });
+    h += `</tbody></table></div><div class="tbl"><table><thead><tr><th>Deine Rochade</th><th>Partien</th><th>S / R / N</th><th>Siegquote</th></tr></thead><tbody>`;
+    ["kurz (O-O)","lang (O-O-O)","keine"].forEach(k => { const v = a.rochade[k]; if (!v) return; const W = v.W || 0, D = v.D || 0, L2 = v.L || 0;
+      h += `<tr><td>${k}</td><td class="num">${v.Partien}</td><td>${wdl(W, D, L2)}</td><td class="num">${pct(W, v.Partien)} %</td></tr>`; });
+    h += `</tbody></table></div></div>`;
+    $("trophies").innerHTML = h;
+    $("trophies").querySelectorAll("button.ach").forEach(b => b.onclick = () => toggleExamples(b));
+    $("trophies").querySelectorAll(".strip .sq").forEach(b => b.onclick = () => { go("partien"); openGame(b.dataset.g); });
+    $("trophies").querySelectorAll("tr[data-cat]").forEach(r => r.onclick = () => { resetGameFilters(); gs.cat = r.dataset.cat; afterFilterJump(); });
+    $("trophies").querySelectorAll("tr[data-open]").forEach(r => r.onclick = () => { resetGameFilters(); gs.open = "v:" + r.dataset.open; gs.color = r.dataset.col; afterFilterJump(); });
+  }
+  function resetGameFilters() { Object.assign(gs, { cat:"Alle", color:"alle", res:"alle", end:"alle", sort:"neu", open:"alle", opp:"" }); $("gfOpp").value = ""; }
+  function afterFilterJump() { renderGameFilters(); renderGameList(); go("partien"); const l = gFiltered(); if (l.length) openGame(l[0].id); $("gfDetails").open = true; }
+  function toggleExamples(btn) {
+    const grid = btn.parentElement, old = grid.querySelector(".exlist"), same = old && old.dataset.c === btn.dataset.c;
+    if (old) old.remove();
+    grid.querySelectorAll("button.ach").forEach(b => b.setAttribute("aria-expanded", "false"));
+    if (same) return;
+    const c = APP.cards[+btn.dataset.c], div = document.createElement("div");
+    div.className = "exlist"; div.dataset.c = btn.dataset.c;
+    div.innerHTML = `<span class="eyebrow" style="width:100%">${esc(c.name)} · ${c.ex.length} Beispiel${c.ex.length > 1 ? "e" : ""}</span>` + c.ex.map(([gid, ply]) => {
+      const g = byId[gid]; if (!g) return "";
+      return `<button type="button" class="chip" data-g="${gid}" data-p="${ply}">${fmtDate(g.end)} · ${esc(oppOf(g).name)}${ply ? " · Zug " + moveNo(ply) : ""}</button>`;
+    }).join("");
+    // nach der letzten Karte derselben Zeile einfügen
+    const cards = Array.from(grid.children), top = btn.offsetTop; let after = btn;
+    cards.forEach(el => { if (el.offsetTop === top) after = el; });
+    after.after(div); btn.setAttribute("aria-expanded", "true");
+    div.querySelectorAll("button").forEach(b => b.onclick = () => { go("partien"); openGame(b.dataset.g, +b.dataset.p); });
+  }
+
+  /* ---------- Navigation ---------- */
+  let view = "partien";
+  function setHash(h) { try { history.replaceState(null, "", "#" + h); } catch (e) {} }
+  function go(v) {
+    view = v;
+    ["partien","training","trophaeen"].forEach(x => { $("v-" + x).hidden = x !== v; });
+    document.querySelectorAll("nav.tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.v === v ? "page" : "false"));
+    if (v === "trophaeen") { renderTrophies(); setHash("trophaeen"); }
+    if (v === "partien") { if (!gs.cur && GAMES.length) openGame(GAMES[0].id); else { requestAnimationFrame(drawChart); if (gs.cur) setHash("g" + gs.cur.id + "-" + gs.ply); } }
+    if (v === "training") { if (!ts.cur) { const l = tFiltered(); if (l.length) openPuzzle(l[0].id); } else setHash("p" + ts.cur.id); }
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll("nav.tabs a").forEach(a => a.addEventListener("click", e => { e.preventDefault(); go(a.dataset.v); }));
+  function route() {
+    const h = (location.hash || "").slice(1);
+    let m;
+    if ((m = h.match(/^g(\d+)(?:-(\d+))?$/)) && byId[m[1]]) { go("partien"); openGame(m[1], m[2] != null ? +m[2] : null); return; }
+    if ((m = h.match(/^p(\d+-\d+)$/)) && PUZ.some(p => p.id === m[1])) { go("training"); openPuzzle(m[1]); return; }
+    if (h === "training" || h === "trophaeen" || h === "partien") { go(h); return; }
+    go("partien");
+  }
+  window.addEventListener("hashchange", route);
+  document.addEventListener("keydown", e => {
+    if (view !== "partien" || (e.target.matches && e.target.matches("input, select, textarea"))) return;
+    if (e.key === "ArrowLeft") goPly(gs.ply - 1); else if (e.key === "ArrowRight") goPly(gs.ply + 1);
+    else if (e.key === "Home") goPly(0); else if (e.key === "End") goPly(1e9); else return;
+    e.preventDefault();
+  });
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawChart, 120); });
+  const mq = window.matchMedia("(max-width:760px)");
+  function syncDetails() { ["gfDetails","tfDetails"].forEach(id => { $(id).open = !mq.matches; }); }
+
+  /* ---------- Start ---------- */
+  Promise.all(["data/app.json","data/games.json","data/puzzles.json"].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.json(); })))
+    .then(([app, gd, pd]) => {
+      APP = app; GAMES = gd.games; PUZ = pd.puzzles;
+      GAMES.forEach(g => byId[g.id] = g); PUZ.forEach(p => puzByPly[p.id] = p);
+      $("lvlTop").innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#pc-${{ "♙":"wp","♘":"wn","♗":"wb","♖":"wr","♕":"wq","♔":"wk" }[app.level.piece] || "wp"}"/></svg>Level ${app.level.nr} · ${esc(app.level.title)}`;
+      $("foot").innerHTML = `Stand ${esc(app.stand)} · ${GAMES.length} Partien von ${esc(app.name)} · Bewertung: Stockfish 19 · Gewinnchance nach Lichess-Formel, Genauigkeit weicht von Chess.com ab · Figuren: Cburnett (CC BY-SA 3.0)`;
+      gBoard = Board($("gBoard")); tBoard = Board($("tBoard"));
+      syncDetails(); mq.addEventListener("change", syncDetails);
+      $("gScaleRows").innerHTML = ORDER.map(k => `<div class="scale-row"><span class="symb" style="background:var(${CLS[k].v})">${CLS[k].sym}</span><span><b>${CLS[k].de}</b>${RULE[k]}</span></div>`).join("")
+        + `<p class="note">Gemessen wird die Gewinnchance des Ziehenden vor und nach dem Zug (Stockfish 19, Tiefe 16). Grenzen wie bei Chess.com.</p>`;
+      renderGameFilters(); renderTrainingFilters(); renderProgress();
+      route(); initProgress();
+    })
+    .catch(() => { $("v-partien").innerHTML = `<div class="card empty">Die Daten konnten nicht geladen werden. Lade die Seite neu.</div>`; });
+})();
+</script>
