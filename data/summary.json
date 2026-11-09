@@ -1,16 +1,16 @@
 {
  "name": "2Kaos0",
- "stand": "07.11.2026",
+ "stand": "09.11.2026",
  "level": 3,
  "level_titel": "Läufer",
- "xp": 420,
- "achievements": 22,
+ "xp": 480,
+ "achievements": 23,
  "achievements_gesamt": 36,
- "rapid": 512,
+ "rapid": 521,
  "bullet": 357,
- "partien": 80,
- "siege": 31,
- "rapid_genauigkeit": 80.7,
- "rapid_patzer_pro_partie": 2.61,
- "uebungsstellungen": 363
+ "partien": 82,
+ "siege": 33,
+ "rapid_genauigkeit": 80.8,
+ "rapid_patzer_pro_partie": 2.62,
+ "uebungsstellungen": 374
 }
