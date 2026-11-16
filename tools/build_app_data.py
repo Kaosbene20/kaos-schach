@@ -117,7 +117,7 @@ for f in glob.glob("vcache/*.json"):
     g["cat"] = category(g["time_class"], g["time_control"], op["name"])
     g["family"] = " ".join(g["opening"].split()[:3]) if g["opening"] else "Unbekannt"
     g["group"] = gruppe(g["opening"]) if g["opening"] else "Unbekannt"
-    klassifiziere(g["plies"])
+    klassifiziere(g["plies"], (g["white"].get("rating"), g["black"].get("rating")))
     codes = {g["white"]["result"], g["black"]["result"]} - {"win"}
     g["ende"] = next(iter(codes)) if len(codes) == 1 else "unbekannt"
     g["elo"] = partie_elo(g["plies"])

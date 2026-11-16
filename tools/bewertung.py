@@ -3,7 +3,10 @@
 Quelle der Grenzen: Chess.com Hilfe "How are moves classified" (Expected Points):
 Bester 0 · Exzellent bis 2 · Gut bis 5 · Ungenauigkeit bis 10 · Fehler bis 20 · Patzer ab 20.
 Zusätzlich: Erzwungen (einziger legaler Zug), Matt verpasst, Chance verpasst (Fehler des Gegners nicht bestraft).
-Brillant: bester oder fast bester Zug (< 2 Punkte), der eine Figur (mind. Leichtfigur) opfert, ohne schon klar zu gewinnen.
+Brillant (wie Chess.com: "ein gutes Figurenopfer"): bester oder fast bester Zug (< 2 Punkte), der eine Figur (mind. Leichtfigur) opfert,
+nach dem Zug nicht schlecht steht und vorher nicht schon völlig gewonnen war (höchstens 90 % Gewinnchance).
+Chess.com definiert das Opfer für schwächere Spieler großzügiger: Unter 1200 Elo reicht ein Nettoverlust von 1 Punkt
+(z. B. Läufer gegen zwei Bauern), ab 1200 Elo sind es 2 Punkte.
 Toll: der einzige gute Zug – der zweitbeste Zug wäre mindestens 10 Punkte schlechter (Wert "gap" aus great_engine.py).
 Partie-Elo: Schätzung aus dem durchschnittlichen Bauernverlust pro Zug (ACPL), unabhängig vom Rating.
 """
@@ -31,8 +34,13 @@ def stufe_deutsch(drop):
 WERT = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
 
 
-def ist_opfer(fen, uci):
-    """True, wenn der gezogene Stein (mind. 3 Punkte) danach netto mind. 2 Punkte einbüßen kann."""
+def opfer_schwelle(rating):
+    """Netto-Materialverlust, ab dem ein Zug als Opfer zählt (großzügiger für schwächere Spieler, wie Chess.com)."""
+    return 1 if (rating or 0) < 1200 else 2
+
+
+def ist_opfer(fen, uci, schwelle=2):
+    """True, wenn der gezogene Stein (mind. 3 Punkte) danach netto mindestens `schwelle` Punkte einbüßen kann."""
     b = chess.Board(fen)
     mv = chess.Move.from_uci(uci)
     stein = b.piece_at(mv.from_square)
@@ -51,7 +59,7 @@ def ist_opfer(fen, uci):
     if not angreifer:
         return False
     verlust = WERT[stein.piece_type] - (min(angreifer) if gedeckt else 0)
-    return verlust - gewinn >= 2
+    return verlust - gewinn >= schwelle
 
 
 def zug_cp(p, weiss_zieht_danach=None):
@@ -88,8 +96,9 @@ def partie_elo(plies):
     return out
 
 
-def klassifiziere(plies):
-    """Setzt cls für jeden Halbzug einer Viewer-Partie neu (plies[0] = Startstellung)."""
+def klassifiziere(plies, ratings=None):
+    """Setzt cls für jeden Halbzug einer Viewer-Partie neu (plies[0] = Startstellung).
+    ratings = (Weiß-Rating, Schwarz-Rating) steuert die Opfer-Schwelle für Brillant; ohne Angabe gilt 2 Punkte."""
     for i in range(1, len(plies)):
         p, prev = plies[i], plies[i - 1]
         weiss = i % 2 == 1
@@ -104,7 +113,7 @@ def klassifiziere(plies):
         vorher = prev["w"] if weiss else 100 - prev["w"]
         nachher = p["w"] if weiss else 100 - p["w"]
         bester = bool(p.get("best_uci")) and p.get("uci") == p["best_uci"]
-        if (bester or drop < 2) and vorher <= 90 and nachher >= 50 and ist_opfer(prev["fen"], p["uci"]):
+        if (bester or drop < 2) and vorher <= 90 and nachher >= 50 and ist_opfer(prev["fen"], p["uci"], opfer_schwelle(ratings[0 if weiss else 1]) if ratings else 2):
             p["cls"] = "brilliant"
             continue
         if bester:

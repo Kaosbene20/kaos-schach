@@ -87,7 +87,7 @@ try:
             "white": {"name": w_["username"], "rating": w_["rating"], "result": w_["result"]},
             "black": {"name": b_["username"], "rating": b_["rating"], "result": b_["result"]},
             "opening": game.headers.get("ECOUrl", "").rsplit("/", 1)[-1].replace("-", " "),
-            "plies": klassifiziere(plies),
+            "plies": klassifiziere(plies, (w_["rating"], b_["rating"])),
         }, separators=(",", ":")))
         print(f"[{idx}] {i+1}/{len(games)} {gid}", flush=True)
 finally:

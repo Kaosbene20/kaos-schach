@@ -24,7 +24,7 @@ def win(score, pov):
 jobs = []
 for f in sorted(glob.glob("vcache/*.json")):
     g = json.load(open(f))
-    klassifiziere(g["plies"])
+    klassifiziere(g["plies"], (g["white"].get("rating"), g["black"].get("rating")))
     mc = chess.WHITE if g["white"]["name"].lower() == ME else chess.BLACK
     for i, p in enumerate(g["plies"][1:], 1):
         mover = chess.WHITE if i % 2 == 1 else chess.BLACK
